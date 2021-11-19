@@ -1,0 +1,1 @@
+python -m PyQt5.uic.pyuic -x BTL.ui -o main_window.py

@@ -1,0 +1,1 @@
+pyinstaller --onefile --noconsole --path="D:\OneDrive\University\Subject\HK7\HTDKN\BTL\GUI\" .\N12.py
