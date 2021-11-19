@@ -1,4 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QMessageBox, QSlider, QFrame
 
 from enum import Enum
 
@@ -20,10 +21,12 @@ class GUI(Ui_MainWindow):
     def __init__(self, MainWindow) -> None:
         super(GUI, self).__init__()
         self.setupUi(MainWindow)
+        self.init_generate_com_select()
         self.init_variable()
         self.init_default_config_window()
         self.init_callback()
         self.init_timer()
+        self.init_table()
         self.refresh_status_bar()
 
     def init_variable(self) -> None:
@@ -37,6 +40,9 @@ class GUI(Ui_MainWindow):
         # Timer call for loop process
         self.loop_UART = 100
         self.loop_STATUS_BAR = 5000
+
+        # Max range
+        self.max_range_color = 255
 
     def init_timer(self) -> None:
         # Callback get data after 100ms
@@ -58,7 +64,7 @@ class GUI(Ui_MainWindow):
         self.single_select.setChecked(True)
 
         # Default value and type input text editor
-        validator = QtGui.QIntValidator(0, 255, self.groupBox_4)
+        validator = QtGui.QIntValidator(0, 255, self.color_grbox)
 
         self.blue_value.setText("0")
         self.blue_value.setValidator(validator)
@@ -67,12 +73,21 @@ class GUI(Ui_MainWindow):
         self.green_value.setText("0")
         self.green_value.setValidator(validator)
 
+        # Default max range color
+        self.green_slider.setMaximum(self.max_range_color)
+        self.red_slider.setMaximum(self.max_range_color)
+        self.blue_slider.setMaximum(self.max_range_color)
+
+        # Set color sample
+        self.sample_frame.setFrameStyle(QFrame.Panel | QFrame.Plain)
+        self.color_sample()
+
     def init_callback(self) -> None:
         # Callback connect button
         self.connect_button.clicked.connect(self.connectbtn)
 
         # Callback send button
-        self.send_button.clicked.connect(self.sendbtn)
+        self.send_button.clicked.connect(self.send_data)
 
         # Callback radiobox mode
         self.random_select.toggled.connect(
@@ -85,73 +100,131 @@ class GUI(Ui_MainWindow):
             lambda: self.get_mode_radio_button(pixel_led_mode.single)
         )
 
-        # Callback when value change in qlinetext'
+        # Callback when value change in color qlinetext'
         self.blue_value.textChanged.connect(
-            lambda: self.limit_number_input(self.blue_value)
+            lambda: self.color_linetext_change(self.blue_value, self.blue_slider)
         )
         self.red_value.textChanged.connect(
-            lambda: self.limit_number_input(self.red_value)
+            lambda: self.color_linetext_change(self.red_value, self.red_slider)
         )
         self.green_value.textChanged.connect(
-            lambda: self.limit_number_input(self.green_value)
+            lambda: self.color_linetext_change(self.green_value, self.green_slider)
         )
 
-    def limit_number_input(self, qlineedit_name: QtWidgets.QLineEdit):
-        if int(qlineedit_name.text()) > 255:
-            qlineedit_name.setText("255")
-        if qlineedit_name.text()[0] == "0":
-            qlineedit_name.setText(str(int(qlineedit_name.text())))
+        # Callback when value change in color slider
+        self.blue_slider.valueChanged.connect(
+            lambda: self.color_slider_change(self.blue_slider, self.blue_value)
+        )
+        self.red_slider.valueChanged.connect(
+            lambda: self.color_slider_change(self.red_slider, self.red_value)
+        )
+        self.green_slider.valueChanged.connect(
+            lambda: self.color_slider_change(self.green_slider, self.green_value)
+        )
+
+    def init_generate_com_select(self) -> None:
+        for x in range(100):
+            com_name = "COM" + str(x + 1)
+            self.com_select.addItem(com_name)
+
+    def init_table(self) -> None:
+        self.device_table.verticalHeader().setDefaultSectionSize(10)
+
+    def color_slider_change(
+        self, slider: QSlider, linetext: QtWidgets.QLineEdit
+    ) -> None:
+        linetext.setText(str(slider.value()))
+        self.color_sample()
+
+    def color_linetext_change(
+        self, linetext: QtWidgets.QLineEdit, slider: QSlider
+    ) -> None:
+        if int(linetext.text()) > self.max_range_color:
+            linetext.setText(str(self.max_range_color))
+        if linetext.text()[0] == "0":
+            linetext.setText(str(int(linetext.text())))
+        slider.setValue(int(linetext.text()))
+
+        self.color_sample()
+
+    def color_sample(self) -> None:
+        color_sample = (
+            "background-color:rgb("
+            + str(self.red_slider.value())
+            + ","
+            + str(self.green_slider.value())
+            + ","
+            + str(self.blue_slider.value())
+            + ")"
+        )
+        self.sample_frame.setStyleSheet(color_sample)
 
     def connectbtn(self) -> None:
         NameCOM = self.com_select.currentText()
         try:
             if self.com_connect_status == False:
-                # for windows
-                self.transmit = serial.Serial(NameCOM, 115200, timeout=2.5)
-                # for ubuntu
-                # self.transmit = serial.Serial("/dev/pts/5",115200,timeout=2.5)
-                self.com_select.setEnabled(False)
-                self.connect_button.setText("DISCONNECT")
-                self.connect_button.setStyleSheet("QPushButton {color: red;}")
-                self.com_connect_status = True
-                self.com_choice = NameCOM
-
-                status_bar = "Serial port " + NameCOM + " opened"
-                self.statusBar.showMessage(status_bar, msecs=self.loop_STATUS_BAR)
-                self.TIM_STATUS_BAR.start()
+                self.connect_com(NameCOM)
             else:
-                self.com_select.setEnabled(True)
-                self.transmit.close()
-                self.connect_button.setText("CONNECT")
-                self.connect_button.setStyleSheet("QPushButton {color: green;}")
-                self.com_connect_status = False
-                self.com_choice = ""
-
-                status_bar = "Serial port " + NameCOM + " closed"
-                self.statusBar.showMessage(status_bar, msecs=self.loop_STATUS_BAR)
-                self.TIM_STATUS_BAR.start()
+                self.disconnect_com()
         except IOError:
             status_bar = "Serial port " + NameCOM
             if self.com_connect_status == False:
-                status_bar += " opening "
+                status_bar += " error when open port !"
             else:
-                status_bar += " closing "
+                status_bar += " error when close port !"
             self.statusBar.showMessage(status_bar, msecs=self.loop_STATUS_BAR)
             self.TIM_STATUS_BAR.start()
 
+    def connect_com(self, com) -> None:
+        # for windows
+        self.transmit = serial.Serial(com, 115200, timeout=2.5)
+        # for ubuntu
+        # self.transmit = serial.Serial("/dev/pts/5",115200,timeout=2.5)
+        self.com_select.setEnabled(False)
+        self.connect_button.setText("DISCONNECT")
+        self.connect_button.setStyleSheet("QPushButton {color: red;}")
+        self.com_connect_status = True
+        self.com_choice = com
+
+        status_bar = "Serial port " + self.com_choice + " opened"
+        self.statusBar.showMessage(status_bar, msecs=self.loop_STATUS_BAR)
+        self.TIM_STATUS_BAR.start()
+
+    def disconnect_com(self) -> None:
+        self.com_select.setEnabled(True)
+        self.transmit.close()
+        self.connect_button.setText("CONNECT")
+        self.connect_button.setStyleSheet("QPushButton {color: green;}")
+        self.com_connect_status = False
+
+        status_bar = "Serial port " + self.com_choice + " closed"
+        self.com_choice = ""
+
+        self.statusBar.showMessage(status_bar, msecs=self.loop_STATUS_BAR)
+        self.TIM_STATUS_BAR.start()
+
+    def disconnect_com_exp(self) -> None:
+        self.com_select.setEnabled(True)
+        self.connect_button.setText("CONNECT")
+        self.connect_button.setStyleSheet("QPushButton {color: green;}")
+        self.com_connect_status = False
+        self.com_choice = ""
+
+    def color_enable(self, status: bool) -> None:
+        self.green_value.setEnabled(status)
+        self.red_value.setEnabled(status)
+        self.blue_value.setEnabled(status)
+        self.green_slider.setEnabled(status)
+        self.red_slider.setEnabled(status)
+        self.blue_slider.setEnabled(status)
+
     def get_mode_radio_button(self, input: pixel_led_mode) -> None:
         if input == pixel_led_mode.random:
-            self.green_value.setEnabled(False)
-            self.red_value.setEnabled(False)
-            self.blue_value.setEnabled(False)
+            self.color_enable(False)
         elif input == pixel_led_mode.single:
-            self.green_value.setEnabled(True)
-            self.red_value.setEnabled(True)
-            self.blue_value.setEnabled(True)
+            self.color_enable(True)
         elif input == pixel_led_mode.rainbow:
-            self.green_value.setEnabled(False)
-            self.red_value.setEnabled(False)
-            self.blue_value.setEnabled(False)
+            self.color_enable(False)
 
         self.mode = input
 
@@ -162,7 +235,7 @@ class GUI(Ui_MainWindow):
         return_data += (int(self.green_value.text()),)
         return return_data
 
-    def sendbtn(self):
+    def send_data(self):
         data = str(self.mode.name)
 
         if self.mode == pixel_led_mode.single:
@@ -196,13 +269,24 @@ class GUI(Ui_MainWindow):
     def getdata(self) -> None:
         bytetoread = []
         if self.com_connect_status == True:
-            bytetoread = self.transmit.inWaiting()
-            if bytetoread > 0:
-                # maindata=str(self.transmit.read(bytetoread),'utf-8')
-                raw_data = str(self.transmit.read(bytetoread))
-                raw_data = raw_data.replace("'", "")
-                raw_data = raw_data[1:]
-                self.process_receive_data(raw_data)
+            try:
+                bytetoread = self.transmit.inWaiting()
+                if bytetoread > 0:
+                    # maindata=str(self.transmit.read(bytetoread),'utf-8')
+                    raw_data = str(self.transmit.read(bytetoread))
+                    raw_data = raw_data.replace("'", "")
+                    raw_data = raw_data[1:]
+                    self.process_receive_data(raw_data)
+            except:
+                self.disconnect_com_exp()
+                self.error_msg("COM disconnect unexpected")
+
+    def error_msg(self, text):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText(text)
+        msg.setWindowTitle("Error")
+        msg.exec_()
 
 
 def UIbuild():
