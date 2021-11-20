@@ -3,4 +3,6 @@ build/
 dist/
 __pycache__/
 
+*.spec
+
 !.gitignore

@@ -1,61 +1,170 @@
+from importlib import machinery
+from re import match
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QMessageBox, QSlider, QFrame
-
-from enum import Enum
+from PyQt5.QtWidgets import (
+    QAbstractButton,
+    QAbstractItemView,
+    QHeaderView,
+    QMessageBox,
+    QSlider,
+    QFrame,
+    QTableWidgetItem,
+)
 
 import serial
 import sys
 
 from typing import *
+
 from main_window import *
 
-
-class pixel_led_mode(Enum):
-    rainbow = 0
-    random = 1
-    single = 2
-    stop = 3
+from compress_data import *
+from typedef import *
 
 
-class GUI(Ui_MainWindow):
+class builtTable(Ui_MainWindow):
+    def __init__(self) -> None:
+        super().__init__()
+        self.device_count = 0
+        self.row_init = 18
+
+    def init_device_table(self) -> None:
+        self.device_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.device_table.setSelectionMode(QAbstractItemView.NoSelection)
+        # Set default columnn width
+        self.device_table.setColumnWidth(0, 5)
+        self.device_table.setColumnWidth(1, 80)
+        self.device_table.setColumnWidth(2, 80)
+        self.device_table.setColumnWidth(3, 50)
+        self.device_table.setColumnWidth(4, 80)
+        self.device_table.setColumnWidth(5, 60)
+        self.device_table.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
+        # Add row
+        self.device_table.verticalHeader().setSectionsClickable(False)
+        self.device_table.verticalHeader().setDefaultSectionSize(15)
+        self.device_table.verticalHeader().setVisible(False)
+        for x in range(self.row_init):
+            self.device_table.insertRow(x)
+
+    def add_row_device_table(self) -> None:
+        row_count = self.device_table.rowCount()
+        self.device_table.insertRow(row_count)
+
+    def delete_row_device_table(self, row_no) -> None:
+        self.device_table.removeColumn(row_no)
+
+    def add_item_device_table(
+        self,
+        can_id: int,
+        device_status: deviceStatus,
+        button_status: buttonStatus,
+        mode_neopixel: pixelMode,
+        led_status: ledMode,
+    ) -> None:
+        if self.device_count > self.device_table.rowCount():
+            self.add_row_device_table()
+
+        item = QTableWidgetItem()
+        item.setText(str(self.device_count + 1))
+        self.device_table.setItem(self.device_count, tableColumn.ID.value, item)
+
+        item = QTableWidgetItem()
+        item.setText(str(can_id))
+        self.device_table.setItem(self.device_count, tableColumn.can_id.value, item)
+
+        item = QTableWidgetItem()
+        item.setText(str(device_status.name.upper()))
+        self.device_table.setItem(
+            self.device_count, tableColumn.device_status.value, item
+        )
+
+        item = QTableWidgetItem()
+        item.setText(str(button_status.name.upper()))
+        self.device_table.setItem(
+            self.device_count, tableColumn.button_status.value, item
+        )
+
+        item = QTableWidgetItem()
+        item.setText(str(mode_neopixel.name.upper()))
+        self.device_table.setItem(
+            self.device_count, tableColumn.mode_neopixel.value, item
+        )
+
+        item = QTableWidgetItem()
+        item.setText(str(led_status.name.upper()))
+        self.device_table.setItem(self.device_count, tableColumn.led_status.value, item)
+
+        self.device_count += 1
+
+    def delete_item_device_table(self, row: int) -> None:
+        self.device_count -= 1
+        self.device_table.removeRow(row)
+        row_count = self.device_table.rowCount()
+        if row_count < self.row_init:
+            self.add_row_device_table()
+        for x in range(self.device_count):
+            self.device_table.item(x, 0).setText(str(x + 1))
+
+    def change_item_device_table(
+        self, row: int, change_column: int, new_value: Any
+    ) -> None:
+        self.device_table.item(row, change_column).setText(str(new_value))
+
+
+class GUI(builtTable, CompressData):
     def __init__(self, MainWindow) -> None:
         super(GUI, self).__init__()
         self.setupUi(MainWindow)
-        self.init_generate_com_select()
         self.init_variable()
         self.init_default_config_window()
         self.init_callback()
         self.init_timer()
-        self.init_table()
+        self.init_device_table()
         self.refresh_status_bar()
 
     def init_variable(self) -> None:
         self.com_connect_status = False
-        self.mode: pixel_led_mode = pixel_led_mode.single
+        self.mode: pixelMode = pixelMode.single
 
         # Status of device
         self.status_CAN_connect = False
-        self.status_button_push = False
 
         # Timer call for loop process
         self.loop_UART = 100
         self.loop_STATUS_BAR = 5000
+        self.loop_DEVICE_STATUS = 2000
 
         # Max range
         self.max_range_color = 255
 
+        self.ready_to_read = True
+        self.combo_box_device_select = []
+
     def init_timer(self) -> None:
+        """
+        Add timer for some object
+        """
+
         # Callback get data after 100ms
         self.TIM_UART = QtCore.QTimer()
         self.TIM_UART.setInterval(self.loop_UART)
-        self.TIM_UART.timeout.connect(self.getdata)
+        self.TIM_UART.timeout.connect(self.get_data)
         self.TIM_UART.start()
 
         self.TIM_STATUS_BAR = QtCore.QTimer()
         self.TIM_STATUS_BAR.setInterval(self.loop_STATUS_BAR)
         self.TIM_STATUS_BAR.timeout.connect(self.refresh_status_bar)
 
+        self.STATUS_DEVICE = QtCore.QTimer()
+        self.STATUS_DEVICE.setInterval(self.loop_DEVICE_STATUS)
+        self.STATUS_DEVICE.timeout.connect(self.device_select_callback)
+
     def init_default_config_window(self) -> None:
+        """
+        Set default setting when start app
+        """
+
         # Connect button
         self.connect_button.setText("CONNECT")
         self.connect_button.setStyleSheet("QPushButton {color: green;}")
@@ -78,67 +187,87 @@ class GUI(Ui_MainWindow):
         self.red_slider.setMaximum(self.max_range_color)
         self.blue_slider.setMaximum(self.max_range_color)
 
+        # Generate 100 com in com_select
+        for x in range(100):
+            com_name = "COM" + str(x + 1)
+            self.com_select.addItem(com_name)
+
         # Set color sample
         self.sample_frame.setFrameStyle(QFrame.Panel | QFrame.Plain)
         self.color_sample()
 
     def init_callback(self) -> None:
+        """
+        Add callback for object
+        """
+
         # Callback connect button
-        self.connect_button.clicked.connect(self.connectbtn)
+        self.connect_button.clicked.connect(self.connect_button_callback)
 
         # Callback send button
-        self.send_button.clicked.connect(self.send_data)
+        self.send_button.clicked.connect(self.send_button_callback)
 
         # Callback radiobox mode
         self.random_select.toggled.connect(
-            lambda: self.get_mode_radio_button(pixel_led_mode.random)
+            lambda: self.color_mode_radiobtn_callback(pixelMode.random)
         )
         self.rainbow_select.toggled.connect(
-            lambda: self.get_mode_radio_button(pixel_led_mode.rainbow)
+            lambda: self.color_mode_radiobtn_callback(pixelMode.rainbow)
         )
         self.single_select.toggled.connect(
-            lambda: self.get_mode_radio_button(pixel_led_mode.single)
+            lambda: self.color_mode_radiobtn_callback(pixelMode.single)
         )
 
         # Callback when value change in color qlinetext'
         self.blue_value.textChanged.connect(
-            lambda: self.color_linetext_change(self.blue_value, self.blue_slider)
+            lambda: self.color_linetext_change_callback(
+                self.blue_value, self.blue_slider
+            )
         )
         self.red_value.textChanged.connect(
-            lambda: self.color_linetext_change(self.red_value, self.red_slider)
+            lambda: self.color_linetext_change_callback(self.red_value, self.red_slider)
         )
         self.green_value.textChanged.connect(
-            lambda: self.color_linetext_change(self.green_value, self.green_slider)
+            lambda: self.color_linetext_change_callback(
+                self.green_value, self.green_slider
+            )
         )
 
         # Callback when value change in color slider
         self.blue_slider.valueChanged.connect(
-            lambda: self.color_slider_change(self.blue_slider, self.blue_value)
+            lambda: self.color_slider_change_callback(self.blue_slider, self.blue_value)
         )
         self.red_slider.valueChanged.connect(
-            lambda: self.color_slider_change(self.red_slider, self.red_value)
+            lambda: self.color_slider_change_callback(self.red_slider, self.red_value)
         )
         self.green_slider.valueChanged.connect(
-            lambda: self.color_slider_change(self.green_slider, self.green_value)
+            lambda: self.color_slider_change_callback(
+                self.green_slider, self.green_value
+            )
         )
 
-    def init_generate_com_select(self) -> None:
-        for x in range(100):
-            com_name = "COM" + str(x + 1)
-            self.com_select.addItem(com_name)
+        # Callback when device_select change
+        self.device_select.currentTextChanged.connect(self.device_select_callback)
 
-    def init_table(self) -> None:
-        self.device_table.verticalHeader().setDefaultSectionSize(10)
-
-    def color_slider_change(
+    def color_slider_change_callback(
         self, slider: QSlider, linetext: QtWidgets.QLineEdit
     ) -> None:
+        """
+        Callback for color slider
+        """
+
         linetext.setText(str(slider.value()))
         self.color_sample()
 
-    def color_linetext_change(
+    def color_linetext_change_callback(
         self, linetext: QtWidgets.QLineEdit, slider: QSlider
     ) -> None:
+        """
+        Callback for color text edit
+        """
+
+        if linetext.text() == "":
+            linetext.setText("0")
         if int(linetext.text()) > self.max_range_color:
             linetext.setText(str(self.max_range_color))
         if linetext.text()[0] == "0":
@@ -148,6 +277,10 @@ class GUI(Ui_MainWindow):
         self.color_sample()
 
     def color_sample(self) -> None:
+        """
+        Set color background in color sample object
+        """
+
         color_sample = (
             "background-color:rgb("
             + str(self.red_slider.value())
@@ -159,7 +292,21 @@ class GUI(Ui_MainWindow):
         )
         self.sample_frame.setStyleSheet(color_sample)
 
-    def connectbtn(self) -> None:
+    def device_select_callback(self) -> None:
+        """
+        Callback for status device
+        """
+
+        if self.STATUS_DEVICE.isActive() == True:
+            self.STATUS_DEVICE.stop()
+
+        self.status_device.setText("Standby")
+
+    def connect_button_callback(self) -> None:
+        """
+        Callback for color text edit
+        """
+
         NameCOM = self.com_select.currentText()
         try:
             if self.com_connect_status == False:
@@ -203,14 +350,7 @@ class GUI(Ui_MainWindow):
         self.statusBar.showMessage(status_bar, msecs=self.loop_STATUS_BAR)
         self.TIM_STATUS_BAR.start()
 
-    def disconnect_com_exp(self) -> None:
-        self.com_select.setEnabled(True)
-        self.connect_button.setText("CONNECT")
-        self.connect_button.setStyleSheet("QPushButton {color: green;}")
-        self.com_connect_status = False
-        self.com_choice = ""
-
-    def color_enable(self, status: bool) -> None:
+    def color_panel_set_status(self, status: bool) -> None:
         self.green_value.setEnabled(status)
         self.red_value.setEnabled(status)
         self.blue_value.setEnabled(status)
@@ -218,68 +358,154 @@ class GUI(Ui_MainWindow):
         self.red_slider.setEnabled(status)
         self.blue_slider.setEnabled(status)
 
-    def get_mode_radio_button(self, input: pixel_led_mode) -> None:
-        if input == pixel_led_mode.random:
-            self.color_enable(False)
-        elif input == pixel_led_mode.single:
-            self.color_enable(True)
-        elif input == pixel_led_mode.rainbow:
-            self.color_enable(False)
+    def color_mode_radiobtn_callback(self, input: pixelMode) -> None:
+        """
+        Callback for color mode when change radio button
+        """
+
+        if input == pixelMode.random:
+            self.color_panel_set_status(False)
+        elif input == pixelMode.single:
+            self.color_panel_set_status(True)
+        elif input == pixelMode.rainbow:
+            self.color_panel_set_status(False)
 
         self.mode = input
-
-    def get_color_value(self) -> Tuple[int]:
-        return_data: tuple = ()
-        return_data += (int(self.red_value.text()),)
-        return_data += (int(self.blue_value.text()),)
-        return_data += (int(self.green_value.text()),)
-        return return_data
-
-    def send_data(self):
-        data = str(self.mode.name)
-
-        if self.mode == pixel_led_mode.single:
-            for x in self.get_color_value():
-                data += "_"
-                data += str(x)
-
-        if self.com_connect_status == True:
-            data += "\r\n"
-            self.transmit.write(data.encode())
-        else:
-            status_bar = "COM is not connected"
-            self.statusBar.showMessage(status_bar, msecs=self.loop_STATUS_BAR)
-            self.TIM_STATUS_BAR.start()
 
     def refresh_status_bar(self):
         if self.TIM_STATUS_BAR.isActive() == True:
             self.TIM_STATUS_BAR.stop()
 
-        status_bar = "CAN: " + str(self.status_CAN_connect).upper()
-        status_bar += "    "
-        status_bar += "BUTTON DEVICE 1: " + str(self.status_button_push).upper()
+        can_status = ""
+
+        if str(self.status_CAN_connect) == "True":
+            can_status = "CONNECTED"
+        else:
+            can_status = "DISCONNECTED"
+
+        status_bar = "CAN: " + can_status
         self.statusBar.showMessage(status_bar)
 
-    def process_receive_data(self, input: str) -> None:
-        cache = int(input)
-        self.status_CAN_connect = bool(cache & 0x1)
-        self.status_button_push = bool((cache >> 1) & 0x1)
+    def modify_table(self, data_block: Dict[str, Any]) -> None:
+        row = 0
+        action = data_block["action"]
+        can_id = data_block["can_id"]
+        matching = self.device_table.findItems(str(can_id), QtCore.Qt.MatchExactly)
+
+        if matching == []:
+            if action == modifyTable.add_modify:
+                action = modifyTable.add
+            elif action == modifyTable.delete:
+                self.error_msg("Device not register")
+                return
+        else:
+            matching_column = False
+            for x in matching:
+                if x.column() == 1:
+                    if action == modifyTable.add_modify:
+                        action = modifyTable.modify
+                    row = x.row()
+                    matching_column = True
+            if not matching_column:
+                if action == modifyTable.delete:
+                    return
+                action = modifyTable.add
+
+        if action == modifyTable.add:
+            self.add_item_device_table(
+                can_id=data_block["can_id"],
+                device_status=data_block["device_status"],
+                button_status=data_block["button_status"],
+                mode_neopixel=data_block["mode_neopixel"],
+                led_status=data_block["led_status"],
+            )
+            self.combo_box_device_select.append(can_id)
+            self.combo_box_device_select.sort()
+            self.device_select.clear()
+            for x in self.combo_box_device_select:
+                self.device_select.addItem(str(x))
+        elif action == modifyTable.modify:
+            change_column = data_block["change_column"]
+            self.change_item_device_table(
+                row=row,
+                change_column=change_column,
+                new_value=str(
+                    data_block[str(tableColumn(change_column).name)].name
+                ).upper(),
+            )
+        elif action == modifyTable.delete:
+            self.combo_box_device_select.remove(can_id)
+            self.combo_box_device_select.sort()
+            self.device_select.clear()
+            for x in self.combo_box_device_select:
+                self.device_select.addItem(str(x))
+            self.delete_item_device_table(row=row)
+
+        matching = self.device_table.findItems("1", QtCore.Qt.MatchExactly)
+        if matching:
+            self.status_CAN_connect = True
+        else:
+            self.status_CAN_connect = False
         self.refresh_status_bar()
 
-    def getdata(self) -> None:
+    def get_data(self) -> None:
+        """
+        Get data in specify time
+        """
+
         bytetoread = []
-        if self.com_connect_status == True:
+        if self.com_connect_status == True and self.ready_to_read == True:
             try:
                 bytetoread = self.transmit.inWaiting()
                 if bytetoread > 0:
-                    # maindata=str(self.transmit.read(bytetoread),'utf-8')
-                    raw_data = str(self.transmit.read(bytetoread))
-                    raw_data = raw_data.replace("'", "")
-                    raw_data = raw_data[1:]
-                    self.process_receive_data(raw_data)
-            except:
-                self.disconnect_com_exp()
+                    raw_data = self.transmit.read(bytetoread)
+                    self.ready_to_read == False
+                    if (
+                        raw_data[0] == CompressData().start_flag
+                        and raw_data[len(raw_data) - 1] == CompressData().end_flag
+                    ):
+                        length = raw_data[1]
+                        if length == (len(raw_data) - 3):
+                            self.modify_table(CompressData.extract_data(raw_data))
+                    self.ready_to_read == True
+            except IOError:
+                self.disconnect_com()
                 self.error_msg("COM disconnect unexpected")
+
+    def send_button_callback(self):
+        """
+        Callback when send button push
+        """
+        try:
+            id_device = int(self.device_select.currentText())
+        except:
+            pass
+
+        data: bytearray = bytearray()
+        if self.mode == pixelMode.rainbow or self.mode == pixelMode.random:
+            data = CompressData.compress_data(
+                mode=self.mode,
+                type_peripheral=typePeripheral.neopixel,
+                can_id=id_device,
+            )
+        elif self.mode == pixelMode.single:
+            data = CompressData.compress_data(
+                mode=self.mode,
+                type_peripheral=typePeripheral.neopixel,
+                can_id=1,
+                red_value=self.red_slider.value(),
+                blue_value=self.blue_slider.value(),
+                green_value=self.green_slider.value(),
+            )
+
+        if self.com_connect_status == True:
+            self.transmit.write(data)
+            self.status_device.setText("Sent")
+            self.STATUS_DEVICE.start()
+        else:
+            status_bar = "COM is not connected"
+            self.statusBar.showMessage(status_bar, msecs=self.loop_STATUS_BAR)
+            self.TIM_STATUS_BAR.start()
 
     def error_msg(self, text):
         msg = QMessageBox()

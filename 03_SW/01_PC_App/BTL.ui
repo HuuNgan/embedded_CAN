@@ -518,6 +518,36 @@
         <height>421</height>
        </rect>
       </property>
+      <column>
+       <property name="text">
+        <string>ID</string>
+       </property>
+      </column>
+      <column>
+       <property name="text">
+        <string>CAN ID</string>
+       </property>
+      </column>
+      <column>
+       <property name="text">
+        <string>Status</string>
+       </property>
+      </column>
+      <column>
+       <property name="text">
+        <string>Button</string>
+       </property>
+      </column>
+      <column>
+       <property name="text">
+        <string>Mode</string>
+       </property>
+      </column>
+      <column>
+       <property name="text">
+        <string>Led</string>
+       </property>
+      </column>
      </widget>
     </widget>
     <widget class="QWidget" name="about_tab">
