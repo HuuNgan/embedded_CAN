@@ -1,5 +1,3 @@
-from importlib import machinery
-from re import match
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import (
     QAbstractButton,

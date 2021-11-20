@@ -1,1 +1,1 @@
-pyinstaller --onefile --noconsole --path="D:\OneDrive\University\Subject\HK7\HTDKN\BTL\GUI\" .\N12.py
+pyinstaller .\N12.py --onefile --noconsole --path="E:\Project\embedded_CAN\03_SW\01_PC_App\" 

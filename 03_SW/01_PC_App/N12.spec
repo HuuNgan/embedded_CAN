@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(['N12.py'],
-             pathex=['D:\\OneDrive\\University\\Subject\\HK7\\HTDKN\\BTL\\GUI\\'],
+             pathex=['E:\\Project\\embedded_CAN\\03_SW\\01_PC_App\\'],
              binaries=[],
              datas=[],
              hiddenimports=[],
