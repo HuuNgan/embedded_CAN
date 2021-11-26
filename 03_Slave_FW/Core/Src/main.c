@@ -135,8 +135,16 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(GPIO_Pin==GPIO_PIN_0)
 	{
-		__NOP();
+		driver.btn = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
+		encode_msg(&driver, au8_CAN_TxData);
 	}
+	TxHeader.DLC = 2;
+	TxHeader.StdId = 0x65D;
+	TxHeader.IDE = CAN_ID_STD;
+	TxHeader.RTR = CAN_RTR_DATA;
+	TxHeader.TransmitGlobalTime = DISABLE;
+	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, au8_CAN_TxData, &u32_TxMailBox);
+//	while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
 }
 /* USER CODE END PFP */
 
@@ -200,6 +208,7 @@ int main(void)
   all_black_render();
   HAL_Delay(100);
   HAL_CAN_RxFifo0MsgPendingCallback(&hcan1);
+  HAL_GPIO_EXTI_Callback(GPIO_PIN_0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -216,8 +225,9 @@ int main(void)
 //	  TxHeader.TransmitGlobalTime = DISABLE;
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
 //	  while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
-//	  HAL_Delay(1000);
-	  CAN_Rx_Handle();
+	  HAL_GPIO_EXTI_Callback(GPIO_PIN_0);
+	  HAL_Delay(1000);
+//	  CAN_Rx_Handle();
   }
   /* USER CODE END 3 */
 }
@@ -404,13 +414,19 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PD12 PD13 PD14 PD15 */
   GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
