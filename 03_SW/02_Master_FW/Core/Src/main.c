@@ -142,13 +142,12 @@ int main(void)
   sFilterConfig.FilterActivation = ENABLE;
   sFilterConfig.FilterBank = 18;
   sFilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  sFilterConfig.FilterIdHigh = 0x103 << 5;
+  sFilterConfig.FilterIdHigh = 0x65D << 5;
   sFilterConfig.FilterIdLow = 0;
-  sFilterConfig.FilterMaskIdHigh = 0x103 << 5;
+  sFilterConfig.FilterMaskIdHigh = 0x65D << 5;
   sFilterConfig.FilterMaskIdLow = 0;
   sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-//  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
   sFilterConfig.SlaveStartFilterBank = 40;
   
   // Initialize CAN filter
@@ -172,9 +171,9 @@ int main(void)
   while (1)
   {
     //CAN_Rx_Handle();
-    uint8_t TxData[5] = {'H', 'E', 'L', 'L', 'O'};
-	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
-	  while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
+//    uint8_t TxData[5] = {'H', 'E', 'L', 'L', 'O'};
+//	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
+//	  while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
 
 	  HAL_Delay(1000);
     /* USER CODE END WHILE */
