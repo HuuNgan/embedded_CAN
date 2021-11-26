@@ -189,6 +189,7 @@ class GUI(builtTable, CompressData):
         for x in range(100):
             com_name = "COM" + str(x + 1)
             self.com_select.addItem(com_name)
+            self.device_select.addItem(str(x))
 
         # Set color sample
         self.sample_frame.setFrameStyle(QFrame.Panel | QFrame.Plain)
