@@ -477,7 +477,7 @@ class GUI(builtTable, CompressData):
         try:
             id_device = int(self.device_select.currentText())
         except:
-            pass
+            id_device = 0x00
 
         data: bytearray = bytearray()
         if self.mode == pixelMode.rainbow or self.mode == pixelMode.random:
@@ -490,7 +490,7 @@ class GUI(builtTable, CompressData):
             data = CompressData.compress_data(
                 mode=self.mode,
                 type_peripheral=typePeripheral.neopixel,
-                can_id=1,
+                can_id=id_device,
                 red_value=self.red_slider.value(),
                 blue_value=self.blue_slider.value(),
                 green_value=self.green_slider.value(),
