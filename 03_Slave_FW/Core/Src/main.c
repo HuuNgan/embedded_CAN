@@ -29,7 +29,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define NUMBERLEDS		5
+#define NUMBERLEDS		8
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -79,27 +79,56 @@ static void MX_TIM8_Init(void);
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, au8_CAN_RxData);
+//	RxHeader.DLC = 5;
+//	au8_CAN_RxData[0] = 0x00;
+//	au8_CAN_RxData[1] = 0x00;
+//	au8_CAN_RxData[2] = 0x00;
+//	au8_CAN_RxData[3] = 0xa0;
+//	au8_CAN_RxData[4] = 0x00;
 	CAN_RX_Flag = SET;
 }
 
-inline void CAN_Rx_Handle(void)
+void CAN_Rx_Handle(void)
 {
-  if(CAN_RX_Flag == SET)
-  {
-	decode_msg(&driver, au8_CAN_RxData, RxHeader.DLC);
-	if (au8_CAN_RxData[0] < 0x04)
+	static rainbow_flag = 0;
+	if(CAN_RX_Flag == SET)
 	{
-		// neopixel
+		decode_msg(&driver, au8_CAN_RxData, RxHeader.DLC);
+		if (au8_CAN_RxData[0] < 0x04)
+		{
+			if(mode==HALT)
+			{
+				switch (driver.MODE)
+				{
+				case 0:
+					rainbow_flag = 1;
+					break;
+				case 1:
+					// random
+					rainbow_flag = 0;
+					break;
+				case 2:
+					one_color_render(driver.B, driver.R, driver.G);
+					rainbow_flag = 0;
+					break;
+				default:
+					break;
+				}
+			}
+		}
+		else if (au8_CAN_RxData[0] == 0x04)
+		{
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, driver.led & (1 << 0));
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, driver.led & (1 << 1));
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, driver.led & (1 << 2));
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, driver.led & (1 << 3));
+		}
+		CAN_RX_Flag = RESET;
 	}
-	else if (au8_CAN_RxData == 0x04)
+	if (rainbow_flag)
 	{
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, driver.led & (1 << 0));
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, driver.led & (1 << 1));
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, driver.led & (1 << 2));
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, driver.led & (1 << 3));
+		render_rainbow_cycle_mode(5);
 	}
-	CAN_RX_Flag = RESET;
-  }
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -169,6 +198,8 @@ int main(void)
 
   init_neopixel(WS2812);
   all_black_render();
+  HAL_Delay(100);
+  HAL_CAN_RxFifo0MsgPendingCallback(&hcan1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -186,10 +217,7 @@ int main(void)
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
 //	  while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
 //	  HAL_Delay(1000);
-	  if(mode==HALT)
-	  {
-		  render_rainbow_cycle_mode(5);
-	  }
+	  CAN_Rx_Handle();
   }
   /* USER CODE END 3 */
 }
