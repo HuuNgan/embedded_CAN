@@ -62,6 +62,8 @@ uint8_t u8_CAN_Length;
 
 uint32_t u32_TxMailBox;
 
+FlagStatus CAN_RX_Flag = RESET;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -86,6 +88,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   {
     u8_RX_Idx = 0;
     // add more...
+  }
+}
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, au8_CAN_RxData);
+  CAN_RX_Flag = SET;
+}
+
+inline void CAN_Rx_Handle(void)
+{
+  if(CAN_RX_Flag == SET)
+  {
+    //do something
+    CAN_RX_Flag = RESET;
   }
 }
 
@@ -143,7 +160,7 @@ int main(void)
   // Initialize CAN filter
   HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig);
   HAL_CAN_Start(&hcan1);
-//  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
   HAL_UART_Receive_IT(&huart4, au8_UART_RxData, 1);
 
@@ -153,6 +170,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    //CAN_Rx_Handle();
     uint8_t TxData[5] = {'H', 'E', 'L', 'L', 'O'};
 	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
 	  while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
