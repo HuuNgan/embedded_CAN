@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "data_format.h"
+#include <string.h>
 
 /* USER CODE END Includes */
 
@@ -50,10 +51,10 @@ CAN_TxHeaderTypeDef TxHeader;
 CAN_RxHeaderTypeDef RxHeader;
 CAN_FilterTypeDef sFilterConfig;
 
-uint8_t au8_CAN_TxData[80];
-uint8_t au8_CAN_RxData[80];
-uint8_t au8_UART_TxData[80];
-uint8_t au8_UART_RxData[80];
+uint8_t au8_CAN_TxData[20];
+uint8_t au8_CAN_RxData[20];
+uint8_t au8_UART_TxData[20];
+uint8_t au8_UART_RxData[20];
 
 uint8_t u8_DEV_ID;
 uint8_t u8_UART_Length;
@@ -81,14 +82,43 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   static uint8_t u8_RX_Idx = 0;
   
-  HAL_UART_Receive_IT(&huart4, &au8_UART_RxData[u8_RX_Idx], 1); 
-  
-  u8_RX_Idx++;
   if(au8_UART_RxData[u8_RX_Idx] == ETX)
   {
     u8_RX_Idx = 0;
-    // add more...
+    
+    TxHeader.StdId = au8_UART_RxData[CAN_ID_OFFSET];
+    au8_CAN_TxData[1] = au8_UART_RxData[MODE_OFFSET];
+    
+    switch(au8_UART_RxData[PERIPH_TYPE_OFFSET])
+    {
+      case PERIPH_TYPE_NEO:
+        if(au8_UART_RxData[MODE_OFFSET] == LED_MODE_SINGLE)
+        {
+          au8_CAN_TxData[0] = NEO_MODE_REG_ADDR;
+          memcpy(&au8_CAN_TxData[2], &au8_UART_RxData[COLOR_OFFSET], 3);
+          TxHeader.DLC = 5;
+        }
+        else
+        {
+          au8_CAN_TxData[0] = NEO_MODE_REG_ADDR;
+          TxHeader.DLC = 2;
+        }
+        break;
+      case PERIPH_TYPE_LED:
+        au8_CAN_TxData[0] = LED_REG_ADDR;
+        TxHeader.DLC = 2;
+        break;
+      case PERIPH_TYPE_BTN:
+        break;
+      default:
+        break;
+    }
+    HAL_CAN_AddTxMessage(&hcan1, &TxHeader, au8_CAN_TxData, &u32_TxMailBox);
+    while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
   }
+  else u8_RX_Idx++;
+  
+  HAL_UART_Receive_IT(&huart4, &au8_UART_RxData[u8_RX_Idx], 1); 
 }
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
@@ -175,7 +205,7 @@ int main(void)
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
 //	  while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
 
-	  HAL_Delay(1000);
+//	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
