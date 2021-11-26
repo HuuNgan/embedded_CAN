@@ -153,22 +153,32 @@
         <Ww>
           <count>0</count>
           <WinNumber>1</WinNumber>
-          <ItemText>au8_CAN_RxData</ItemText>
+          <ItemText>au8_CAN_TxData</ItemText>
         </Ww>
         <Ww>
           <count>1</count>
           <WinNumber>1</WinNumber>
-          <ItemText>au8_CAN_TxData</ItemText>
+          <ItemText>au8_UART_TxData</ItemText>
         </Ww>
         <Ww>
           <count>2</count>
           <WinNumber>1</WinNumber>
-          <ItemText>au8_UART_RxData</ItemText>
+          <ItemText>UART_RxBuffer</ItemText>
         </Ww>
         <Ww>
           <count>3</count>
           <WinNumber>1</WinNumber>
-          <ItemText>au8_UART_TxData</ItemText>
+          <ItemText>CAN_RxBuffer</ItemText>
+        </Ww>
+        <Ww>
+          <count>4</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>\\02_Master_FW\../Core/Src/main.c\TxHeader</ItemText>
+        </Ww>
+        <Ww>
+          <count>5</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>RxHeader</ItemText>
         </Ww>
       </WatchWindow1>
       <Tracepoint>
@@ -177,7 +187,7 @@
       <DebugFlag>
         <trace>0</trace>
         <periodic>1</periodic>
-        <aLwin>1</aLwin>
+        <aLwin>0</aLwin>
         <aCover>0</aCover>
         <aSer1>0</aSer1>
         <aSer2>0</aSer2>

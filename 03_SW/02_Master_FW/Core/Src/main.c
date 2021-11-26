@@ -51,17 +51,13 @@ CAN_TxHeaderTypeDef TxHeader;
 CAN_RxHeaderTypeDef RxHeader;
 CAN_FilterTypeDef sFilterConfig;
 
-uint8_t au8_CAN_TxData[20];
-uint8_t au8_CAN_RxData[20];
-uint8_t au8_UART_TxData[20];
-uint8_t au8_UART_RxData[20];
-
-uint8_t u8_DEV_ID;
-uint8_t u8_UART_Length;
-uint8_t u8_CAN_Length;
-
-
 uint32_t u32_TxMailBox;
+
+uint8_t au8_CAN_TxData[8];
+uint8_t au8_UART_TxData[8];
+
+UartRxFrame_t UART_RxBuffer;
+CAN_RxFrame_t CAN_RxBuffer;
 
 FlagStatus CAN_RX_Flag = RESET;
 
@@ -82,20 +78,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   static uint8_t u8_RX_Idx = 0;
   
-  if(au8_UART_RxData[u8_RX_Idx] == ETX)
+  if(UART_RxBuffer.array[u8_RX_Idx] == ETX)
   {
     u8_RX_Idx = 0;
     
-    TxHeader.StdId = au8_UART_RxData[CAN_ID_OFFSET];
-    au8_CAN_TxData[1] = au8_UART_RxData[MODE_OFFSET];
+    TxHeader.StdId = UART_RxBuffer.Frame.CAN_ID;
+    au8_CAN_TxData[1] = UART_RxBuffer.Frame.Mode;
     
-    switch(au8_UART_RxData[PERIPH_TYPE_OFFSET])
+    switch(UART_RxBuffer.Frame.PeriphType)
     {
       case PERIPH_TYPE_NEO:
-        if(au8_UART_RxData[MODE_OFFSET] == LED_MODE_SINGLE)
+        if(UART_RxBuffer.Frame.Mode == LED_MODE_SINGLE)
         {
           au8_CAN_TxData[0] = NEO_MODE_REG_ADDR;
-          memcpy(&au8_CAN_TxData[2], &au8_UART_RxData[COLOR_OFFSET], 3);
+          memcpy(&au8_CAN_TxData[2], &UART_RxBuffer.Frame.ColorRed, 3);
           TxHeader.DLC = 5;
         }
         else
@@ -114,16 +110,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         break;
     }
     HAL_CAN_AddTxMessage(&hcan1, &TxHeader, au8_CAN_TxData, &u32_TxMailBox);
-    while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
+//    while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
   }
   else u8_RX_Idx++;
   
-  HAL_UART_Receive_IT(&huart4, &au8_UART_RxData[u8_RX_Idx], 1); 
+  HAL_UART_Receive_IT(&huart4, &UART_RxBuffer.array[u8_RX_Idx], 1);
 }
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-  HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, au8_CAN_RxData);
+  HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, (uint8_t*)&CAN_RxBuffer);
   CAN_RX_Flag = SET;
 }
 
@@ -131,7 +127,10 @@ inline void CAN_Rx_Handle(void)
 {
   if(CAN_RX_Flag == SET)
   {
-    //do something
+    au8_CAN_TxData[0] = RxHeader.StdId;
+    au8_CAN_TxData[1] = CAN_RxBuffer.RegAddr;
+    au8_CAN_TxData[2] = CAN_RxBuffer.ButtonState;
+    HAL_UART_Transmit(&huart4, au8_CAN_TxData, 3, 10);
     CAN_RX_Flag = RESET;
   }
 }
@@ -192,7 +191,7 @@ int main(void)
   HAL_CAN_Start(&hcan1);
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
-  HAL_UART_Receive_IT(&huart4, au8_UART_RxData, 1);
+  HAL_UART_Receive_IT(&huart4, UART_RxBuffer.array, 1);
 
   /* USER CODE END 2 */
 
@@ -200,7 +199,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    //CAN_Rx_Handle();
+    CAN_Rx_Handle();
 //    uint8_t TxData[5] = {'H', 'E', 'L', 'L', 'O'};
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
 //	  while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
