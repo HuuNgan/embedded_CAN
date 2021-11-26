@@ -139,17 +139,20 @@ int main(void)
   MX_CAN1_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
+  sFilterConfig.FilterActivation = ENABLE;
+  sFilterConfig.FilterBank = 18;
   sFilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  sFilterConfig.FilterBank = 0;
-  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
   sFilterConfig.FilterIdHigh = 0x103 << 5;
   sFilterConfig.FilterIdLow = 0;
-  sFilterConfig.FilterMaskIdHigh = 0x100 << 5;
+  sFilterConfig.FilterMaskIdHigh = 0x103 << 5;
   sFilterConfig.FilterMaskIdLow = 0;
-  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-  sFilterConfig.FilterActivation = ENABLE;
-  sFilterConfig.SlaveStartFilterBank = 14;
+  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+//  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  sFilterConfig.SlaveStartFilterBank = 40;
+  
+  // Initialize CAN filter
+  HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig);
 
   TxHeader.DLC = 5;
   TxHeader.StdId = 0x65D;
@@ -157,8 +160,6 @@ int main(void)
   TxHeader.RTR = CAN_RTR_DATA;
   TxHeader.TransmitGlobalTime = DISABLE;
 
-  // Initialize CAN filter
-  HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig);
   HAL_CAN_Start(&hcan1);
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
@@ -307,6 +308,7 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
 }
 
