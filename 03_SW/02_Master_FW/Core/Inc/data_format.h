@@ -25,8 +25,13 @@
 #define LED_REG_ADDR        (0x04)
 #define BTN_REG_ADDR        (0x05)
 
+// UART TX define
+#define DEVICE_AVTIVE_MODE  (0)
+#define BTN_STATE_MODE      (1)
+
 typedef struct
 {
+  uint8_t DevID;
   uint8_t RegAddr;
   uint8_t ButtonState;
 } CAN_RxFrame_t;
@@ -50,5 +55,16 @@ typedef union
   UART_FRAME_t Frame;
 } UartRxFrame_t;
 
+typedef struct
+{
+  uint8_t StartOfFrame;
+  uint8_t DataLength;
+  uint8_t CAN_ID;
+  uint8_t Status;
+  uint8_t Mode;
+  uint8_t RegAddr;
+  uint8_t Data;
+  uint8_t EndOfFrame;
+} UartTxFrame_t;
 
 #endif

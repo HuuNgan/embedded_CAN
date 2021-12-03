@@ -56,6 +56,8 @@ uint32_t u32_TxMailBox;
 uint8_t au8_CAN_TxData[8];
 uint8_t au8_UART_TxData[8];
 
+UartTxFrame_t UartTxBuffer;
+
 UartRxFrame_t UART_RxBuffer;
 CAN_RxFrame_t CAN_RxBuffer;
 
@@ -110,7 +112,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         break;
     }
     HAL_CAN_AddTxMessage(&hcan1, &TxHeader, au8_CAN_TxData, &u32_TxMailBox);
-//    while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
+    while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
   }
   else u8_RX_Idx++;
   
@@ -127,10 +129,25 @@ inline void CAN_Rx_Handle(void)
 {
   if(CAN_RX_Flag == SET)
   {
-    au8_CAN_TxData[0] = RxHeader.StdId;
-    au8_CAN_TxData[1] = CAN_RxBuffer.RegAddr;
-    au8_CAN_TxData[2] = CAN_RxBuffer.ButtonState;
-    HAL_UART_Transmit(&huart4, au8_CAN_TxData, 3, 10);
+//    au8_UART_TxData[0] = STX;
+//    au8_UART_TxData[1] = 5;    // data length
+//    au8_UART_TxData[2] = RxHeader.StdId;
+//    au8_UART_TxData[3] = 1;
+//    au8_UART_TxData[4] = 0;
+//    au8_UART_TxData[5] = CAN_RxBuffer.RegAddr;
+//    au8_UART_TxData[6] = CAN_RxBuffer.ButtonState;
+//    au8_UART_TxData[7] = ETX;
+    
+    UartTxBuffer.StartOfFrame = STX;
+    UartTxBuffer.DataLength = 5;
+    UartTxBuffer.CAN_ID = CAN_RxBuffer.DevID;
+    UartTxBuffer.Status = 1;
+    UartTxBuffer.Mode = 0;
+    UartTxBuffer.RegAddr = CAN_RxBuffer.RegAddr;
+    UartTxBuffer.Data = CAN_RxBuffer.ButtonState;
+    UartTxBuffer.EndOfFrame = ETX;
+    
+    HAL_UART_Transmit(&huart4, (uint8_t*)&UartTxBuffer, 8, 10);
     CAN_RX_Flag = RESET;
   }
 }
@@ -233,7 +250,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
-  RCC_OscInitStruct.PLL.PLLN = 80;
+  RCC_OscInitStruct.PLL.PLLN = 168;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -246,10 +263,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
     Error_Handler();
   }
