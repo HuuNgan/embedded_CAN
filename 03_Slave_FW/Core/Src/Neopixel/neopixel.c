@@ -6,6 +6,7 @@
  */
 
 #include "neopixel.h"
+#include <stdlib.h>
 
 void all_black_render(void);
 void render_neopixel(void);
@@ -95,18 +96,33 @@ void one_color_render(uint8_t blue,uint8_t red,uint8_t green)
 	render_neopixel();
 }
 
+void random_render(void)
+{
+	uint_fast16_t var;
+	for (var = STARTBUFFERLED; var < ENDBUFFERLED; ++var)
+	{
+		uint8_t *hsv = hsvtorbg(rand() % 255, 0.9, 0.1);
+		allrgb[var].blue=hsv[0];
+		allrgb[var].red=hsv[1];
+		allrgb[var].green=hsv[2];
+	}
+	render_neopixel();
+}
+
 void render_rainbow_cycle_mode(uint16_t delay)
 {
 	uint_fast16_t var,var1;
 	static uint16_t angle,angle_cache;
 	if(++angle>360)
 		angle=0;
-	for (var = 0; var < ZONE; ++var) {
+	for (var = 0; var < ZONE; ++var)
+	{
 		angle_cache=angle+(360/ZONE)*var;
 		if(angle_cache>360)
 			angle_cache=(angle+(360/ZONE)*var)-360;
-		uint8_t *hvs = hsvtorbg(angle_cache, 0.9, 0.9);
-		for (var1 = var*LEDPERZONE+2; var1 < (var+1)*LEDPERZONE+2; ++var1) {
+		uint8_t *hvs = hsvtorbg(angle_cache, 0.9, 0.1);
+		for (var1 = var*LEDPERZONE+2; var1 < (var+1)*LEDPERZONE+2; ++var1)
+		{
 			allrgb[var1].green=*hvs;
 			allrgb[var1].red=*(hvs+1);
 			allrgb[var1].blue=*(hvs+2);
@@ -119,7 +135,8 @@ void render_rainbow_cycle_mode(uint16_t delay)
 void render_falling_mode(uint8_t blue,uint8_t red,uint8_t green,uint16_t delay)
 {
 	uint_fast16_t var,var1;
-	for (var = STARTBUFFERLED; var < ENDBUFFERLED; ++var) {
+	for (var = STARTBUFFERLED; var < ENDBUFFERLED; ++var)
+	{
 		for (var1 = STARTBUFFERLED; var1 < ENDBUFFERLED; ++var1)
 		{
 			allrgb[var1].green=green*((var==var1)?1:0);
@@ -134,7 +151,8 @@ void render_falling_mode(uint8_t blue,uint8_t red,uint8_t green,uint16_t delay)
 void render_raising_mode(uint8_t blue,uint8_t red,uint8_t green,uint16_t delay)
 {
 	int_fast16_t var,var1;
-	for (var = ENDBUFFERLED-1; var >= STARTBUFFERLED; --var) {
+	for (var = ENDBUFFERLED-1; var >= STARTBUFFERLED; --var)
+	{
 		for (var1 = STARTBUFFERLED; var1 < ENDBUFFERLED; ++var1)
 		{
 			allrgb[var1].green=green*((var==var1)?1:0);

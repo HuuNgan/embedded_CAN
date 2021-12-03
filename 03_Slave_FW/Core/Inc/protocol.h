@@ -19,7 +19,7 @@ typedef struct {
 	uint8_t btn;	// 0x05
 } driver_t;
 
-uint8_t encode_msg(driver_t *driver, uint8_t *msg);
+uint8_t encode_msg(driver_t *driver, uint8_t dev_id, uint8_t *msg);
 uint8_t decode_msg(driver_t *driver, uint8_t *msg, uint8_t len);
 
 #endif /* INC_PROTOCOL_H_ */

@@ -20,7 +20,7 @@
 extern TIM_HandleTypeDef htim8;				//Change to your timer
 extern DMA_HandleTypeDef hdma_tim8_ch1;		//Change to your timer and channel DMA
 
-#define NUMBEROFLED 8						//Max led available
+#define NUMBEROFLED 12						//Max led available
 
 #define LEDPERZONE 1						//For rainbow mode
 /*
@@ -60,6 +60,7 @@ extern color allrgb[BUFFERLED];
 void init_neopixel(type_led in_type_of_led);
 void all_black_render(void);
 void render_neopixel(void);
+void random_render(void);
 void one_color_render(uint8_t blue,uint8_t red,uint8_t green);
 void render_falling_mode(uint8_t blue,uint8_t red,uint8_t green,uint16_t delay);
 void render_raising_mode(uint8_t blue,uint8_t red,uint8_t green,uint16_t delay);

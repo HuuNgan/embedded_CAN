@@ -7,10 +7,11 @@
 
 #include "protocol.h"
 
-uint8_t encode_msg(driver_t *driver, uint8_t *msg)
+uint8_t encode_msg(driver_t *driver, uint8_t dev_id, uint8_t *msg)
 {
-	msg[0] = 0x05;
-	msg[1] = driver->btn;
+	msg[0] = dev_id;
+	msg[1] = 0x05;
+	msg[2] = driver->btn;
 	return 1;
 }
 

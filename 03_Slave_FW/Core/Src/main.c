@@ -34,6 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DEVICE_ID 3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -83,7 +84,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 //	au8_CAN_RxData[0] = 0x00;
 //	au8_CAN_RxData[1] = 0x00;
 //	au8_CAN_RxData[2] = 0x00;
-//	au8_CAN_RxData[3] = 0xa0;
+//	au8_CAN_RxData[3] = 0x00;
 //	au8_CAN_RxData[4] = 0x00;
 	CAN_RX_Flag = SET;
 }
@@ -96,24 +97,22 @@ void CAN_Rx_Handle(void)
 		decode_msg(&driver, au8_CAN_RxData, RxHeader.DLC);
 		if (au8_CAN_RxData[0] < 0x04)
 		{
-			if(mode==HALT)
+			switch (driver.MODE)
 			{
-				switch (driver.MODE)
-				{
-				case 0:
-					rainbow_flag = 1;
-					break;
-				case 1:
-					// random
-					rainbow_flag = 0;
-					break;
-				case 2:
-					one_color_render(driver.B, driver.R, driver.G);
-					rainbow_flag = 0;
-					break;
-				default:
-					break;
-				}
+			case 0:
+				rainbow_flag = 1;
+				break;
+			case 1:
+				// random
+				rainbow_flag = 0;
+				random_render();
+				break;
+			case 2:
+				one_color_render(driver.B, driver.R, driver.G);
+				rainbow_flag = 0;
+				break;
+			default:
+				break;
 			}
 		}
 		else if (au8_CAN_RxData[0] == 0x04)
@@ -136,9 +135,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if(GPIO_Pin==GPIO_PIN_0)
 	{
 		driver.btn = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
-		encode_msg(&driver, au8_CAN_TxData);
+		encode_msg(&driver, DEVICE_ID, au8_CAN_TxData);
 	}
-	TxHeader.DLC = 2;
+	TxHeader.DLC = 3;
 	TxHeader.StdId = 0x65D;
 	TxHeader.IDE = CAN_ID_STD;
 	TxHeader.RTR = CAN_RTR_DATA;
@@ -188,9 +187,9 @@ int main(void)
   sFilterConfig.FilterActivation = ENABLE;
   sFilterConfig.FilterBank = 18;
   sFilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  sFilterConfig.FilterIdHigh = 0x103 << 5;
+  sFilterConfig.FilterIdHigh = DEVICE_ID << 5;
   sFilterConfig.FilterIdLow = 0;
-  sFilterConfig.FilterMaskIdHigh = 0x103 << 5;
+  sFilterConfig.FilterMaskIdHigh = DEVICE_ID << 5;
   sFilterConfig.FilterMaskIdLow = 0;
   sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
@@ -202,12 +201,11 @@ int main(void)
   HAL_CAN_Start(&hcan1);
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
-  uint8_t TxData[] = "We love Mr Hao <3";
-
   init_neopixel(WS2812);
   all_black_render();
   HAL_Delay(100);
-  HAL_CAN_RxFifo0MsgPendingCallback(&hcan1);
+
+  // Handshake
   HAL_GPIO_EXTI_Callback(GPIO_PIN_0);
   /* USER CODE END 2 */
 
@@ -218,16 +216,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-//	  TxHeader.DLC = 5;
-//	  TxHeader.StdId = 0x65D;
-//	  TxHeader.IDE = CAN_ID_STD;
-//	  TxHeader.RTR = CAN_RTR_DATA;
-//	  TxHeader.TransmitGlobalTime = DISABLE;
-//	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
-//	  while(HAL_CAN_IsTxMessagePending(&hcan1, u32_TxMailBox));
-	  HAL_GPIO_EXTI_Callback(GPIO_PIN_0);
-	  HAL_Delay(1000);
-//	  CAN_Rx_Handle();
+	  CAN_Rx_Handle();
   }
   /* USER CODE END 3 */
 }
@@ -434,6 +423,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
 
