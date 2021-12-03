@@ -47,6 +47,8 @@ class CompressData:
             data.append(red_value)
             data.append(green_value)
             data.append(blue_value)
+        elif type_peripheral == typePeripheral.neopixel:
+            data.append(int(mode.value))
         elif type_peripheral == typePeripheral.led:
             data.append(led_value)
 
