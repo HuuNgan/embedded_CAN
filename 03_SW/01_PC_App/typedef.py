@@ -14,11 +14,16 @@ class modifyTable(Enum):
     modify = 3
 
 
+class tabWighet(Enum):
+    neopixel = 0
+    led = 1
+
+
 class typePeripheral(Enum):
     NA = -1
     neopixel = 0
     led = 1
-    button = 2
+    button = 5
 
 
 class pixelMode(Enum):
@@ -49,3 +54,10 @@ class tableColumn(Enum):
     button_status = 3
     mode_neopixel = 4
     led_status = 5
+
+
+class positionLed(Enum):
+    led_1 = 0
+    led_2 = 1
+    led_3 = 2
+    led_4 = 3

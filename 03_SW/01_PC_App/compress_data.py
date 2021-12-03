@@ -15,9 +15,10 @@ class CompressData:
 
     @staticmethod
     def compress_data(
-        mode: pixelMode,
         type_peripheral: typePeripheral,
         can_id: int,
+        mode: pixelMode = None,
+        led_value: int = None,
         red_value: int = None,
         green_value: int = None,
         blue_value: int = None,
@@ -39,12 +40,15 @@ class CompressData:
         """
 
         transmit_data: List[int] = [CompressData().start_flag]
-        data: List[int] = [can_id, int(type_peripheral.value), int(mode.value)]
+        data: List[int] = [can_id, int(type_peripheral.value)]
 
-        if mode == pixelMode.single:
+        if mode == pixelMode.single and type_peripheral == typePeripheral.neopixel:
+            data.append(int(mode.value))
             data.append(red_value)
             data.append(green_value)
             data.append(blue_value)
+        elif type_peripheral == typePeripheral.led:
+            data.append(led_value)
 
         transmit_data.append(len(bytearray(data)))
 

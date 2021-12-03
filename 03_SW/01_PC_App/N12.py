@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
     QMessageBox,
+    QRadioButton,
     QSlider,
     QFrame,
     QTableWidgetItem,
@@ -121,6 +122,14 @@ class GUI(builtTable, CompressData):
         self.init_device_table()
         self.refresh_status_bar()
 
+    @staticmethod
+    def set_bit(data, value, bit):
+        return data | (value << bit)
+
+    @staticmethod
+    def clear_bit(data, value, bit):
+        return data & ~(value << bit)
+
     def init_variable(self) -> None:
         self.com_connect_status = False
         self.mode: pixelMode = pixelMode.single
@@ -167,11 +176,15 @@ class GUI(builtTable, CompressData):
         self.connect_button.setText("CONNECT")
         self.connect_button.setStyleSheet("QPushButton {color: green;}")
 
-        # Radio button
+        # Radio button default select
         self.single_select.setChecked(True)
+        self.led1_off.setChecked(True)
+        self.led2_off.setChecked(True)
+        self.led3_off.setChecked(True)
+        self.led4_off.setChecked(True)
 
         # Default value and type input text editor
-        validator = QtGui.QIntValidator(0, 255, self.color_grbox)
+        validator = QtGui.QIntValidator(0, 255, self.type_peripheral)
 
         self.blue_value.setText("0")
         self.blue_value.setValidator(validator)
@@ -185,10 +198,12 @@ class GUI(builtTable, CompressData):
         self.red_slider.setMaximum(self.max_range_color)
         self.blue_slider.setMaximum(self.max_range_color)
 
-        # Generate 100 com in com_select
+        # Generate 100 com in com_select and device_select
         for x in range(100):
             com_name = "COM" + str(x + 1)
             self.com_select.addItem(com_name)
+
+            # Comment if it can run auto register
             self.device_select.addItem(str(x))
 
         # Set color sample
@@ -371,6 +386,12 @@ class GUI(builtTable, CompressData):
 
         self.mode = input
 
+    def get_led_value(self, led_builtin: QRadioButton) -> int:
+        if led_builtin.isChecked() == True:
+            return 1
+        else:
+            return 0
+
     def refresh_status_bar(self):
         if self.TIM_STATUS_BAR.isActive() == True:
             self.TIM_STATUS_BAR.stop()
@@ -457,15 +478,31 @@ class GUI(builtTable, CompressData):
             try:
                 bytetoread = self.transmit.inWaiting()
                 if bytetoread > 0:
+                    start_pos = -1
+                    end_pos = -1
                     raw_data = self.transmit.read(bytetoread)
+                    pre_process_data: bytearray = []
                     self.ready_to_read == False
+                    for x in range(bytetoread):
+                        if raw_data[x] == CompressData().start_flag and start_pos == -1:
+                            start_pos = x
+                        elif raw_data[x] == CompressData().end_flag and end_pos == -1:
+                            end_pos = x
+
+                        if start_pos >= 0 and end_pos > 0:
+                            for y in range(start_pos, end_pos + 1):
+                                pre_process_data.append(raw_data[y])
+                            break
                     if (
-                        raw_data[0] == CompressData().start_flag
-                        and raw_data[len(raw_data) - 1] == CompressData().end_flag
+                        pre_process_data[0] == CompressData().start_flag
+                        and pre_process_data[len(pre_process_data) - 1]
+                        == CompressData().end_flag
                     ):
-                        length = raw_data[1]
-                        if length == (len(raw_data) - 3):
-                            self.modify_table(CompressData.extract_data(raw_data))
+                        length = pre_process_data[1]
+                        if length == (len(pre_process_data) - 3):
+                            self.modify_table(
+                                CompressData.extract_data(pre_process_data)
+                            )
                     self.ready_to_read == True
             except IOError:
                 self.disconnect_com()
@@ -480,21 +517,43 @@ class GUI(builtTable, CompressData):
         except:
             id_device = 0x00
 
+        tab_present = tabWighet(self.type_peripheral.currentIndex())
+
         data: bytearray = bytearray()
-        if self.mode == pixelMode.rainbow or self.mode == pixelMode.random:
-            data = CompressData.compress_data(
-                mode=self.mode,
-                type_peripheral=typePeripheral.neopixel,
-                can_id=id_device,
+        if tab_present == tabWighet.neopixel:
+            if self.mode == pixelMode.rainbow or self.mode == pixelMode.random:
+                data = CompressData.compress_data(
+                    mode=self.mode,
+                    type_peripheral=typePeripheral.neopixel,
+                    can_id=id_device,
+                )
+            elif self.mode == pixelMode.single:
+                data = CompressData.compress_data(
+                    mode=self.mode,
+                    type_peripheral=typePeripheral.neopixel,
+                    can_id=id_device,
+                    red_value=self.red_slider.value(),
+                    blue_value=self.blue_slider.value(),
+                    green_value=self.green_slider.value(),
+                )
+        elif tab_present == tabWighet.led:
+            led_static = 0
+            led_static = GUI.set_bit(
+                led_static, self.get_led_value(self.led1_on), positionLed.led_1.value
             )
-        elif self.mode == pixelMode.single:
+            led_static = GUI.set_bit(
+                led_static, self.get_led_value(self.led2_on), positionLed.led_2.value
+            )
+            led_static = GUI.set_bit(
+                led_static, self.get_led_value(self.led3_on), positionLed.led_3.value
+            )
+            led_static = GUI.set_bit(
+                led_static, self.get_led_value(self.led4_on), positionLed.led_4.value
+            )
             data = CompressData.compress_data(
-                mode=self.mode,
-                type_peripheral=typePeripheral.neopixel,
+                type_peripheral=typePeripheral.led,
                 can_id=id_device,
-                red_value=self.red_slider.value(),
-                blue_value=self.blue_slider.value(),
-                green_value=self.green_slider.value(),
+                led_value=led_static,
             )
 
         if self.com_connect_status == True:
