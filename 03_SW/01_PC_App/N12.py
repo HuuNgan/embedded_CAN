@@ -493,16 +493,19 @@ class GUI(builtTable, CompressData):
                             for y in range(start_pos, end_pos + 1):
                                 pre_process_data.append(raw_data[y])
                             break
-                    if (
-                        pre_process_data[0] == CompressData().start_flag
-                        and pre_process_data[len(pre_process_data) - 1]
-                        == CompressData().end_flag
-                    ):
-                        length = pre_process_data[1]
-                        if length == (len(pre_process_data) - 3):
-                            self.modify_table(
-                                CompressData.extract_data(pre_process_data)
-                            )
+                    try:
+                        if (
+                            pre_process_data[0] == CompressData().start_flag
+                            and pre_process_data[len(pre_process_data) - 1]
+                            == CompressData().end_flag
+                        ):
+                            length = pre_process_data[1]
+                            if length == (len(pre_process_data) - 3):
+                                self.modify_table(
+                                    CompressData.extract_data(pre_process_data)
+                                )
+                    except:
+                        pass
                     self.ready_to_read == True
             except IOError:
                 self.disconnect_com()
