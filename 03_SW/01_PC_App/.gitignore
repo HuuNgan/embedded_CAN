@@ -1,9 +1,0 @@
-# ignore everything except .gitignore and folders that I care about:
-build/
-dist/
-__pycache__/
-
-*.spec
-
-!.gitignore
-!*.exe
