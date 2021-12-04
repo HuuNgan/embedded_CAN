@@ -1,0 +1,1 @@
+pyinstaller .\N12.py --onefile --noconsole --path="E:\Project\embedded_CAN\03_SW\01_PC_App\" 
