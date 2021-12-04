@@ -44,7 +44,11 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan1;
 
+IWDG_HandleTypeDef hiwdg;
+
 UART_HandleTypeDef huart4;
+DMA_HandleTypeDef hdma_uart4_tx;
+DMA_HandleTypeDef hdma_uart4_rx;
 
 /* USER CODE BEGIN PV */
 CAN_TxHeaderTypeDef TxHeader;
@@ -68,8 +72,10 @@ FlagStatus CAN_RX_Flag = RESET;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_UART4_Init(void);
+static void MX_IWDG_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -116,7 +122,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   }
   else u8_RX_Idx++;
   
-  HAL_UART_Receive_IT(&huart4, &UART_RxBuffer.array[u8_RX_Idx], 1);
+  //HAL_UART_Receive_IT(&huart4, &UART_RxBuffer.array[u8_RX_Idx], 1);
+  HAL_UART_Receive_DMA(&huart4, &UART_RxBuffer.array[u8_RX_Idx], 1);
 }
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
@@ -147,7 +154,8 @@ inline void CAN_Rx_Handle(void)
     UartTxBuffer.Data = CAN_RxBuffer.ButtonState;
     UartTxBuffer.EndOfFrame = ETX;
     
-    HAL_UART_Transmit(&huart4, (uint8_t*)&UartTxBuffer, 8, 10);
+    //HAL_UART_Transmit(&huart4, (uint8_t*)&UartTxBuffer, 8, 10);
+    HAL_UART_Transmit_DMA(&huart4, (uint8_t*)&UartTxBuffer, 8);
     CAN_RX_Flag = RESET;
   }
 }
@@ -182,15 +190,17 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_CAN1_Init();
   MX_UART4_Init();
+  MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   sFilterConfig.FilterActivation = ENABLE;
   sFilterConfig.FilterBank = 18;
   sFilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
   sFilterConfig.FilterIdHigh = 0x65D << 5;
   sFilterConfig.FilterIdLow = 0;
-  sFilterConfig.FilterMaskIdHigh = 0x65D << 5;
+  sFilterConfig.FilterMaskIdHigh = 0xFFF << 5;
   sFilterConfig.FilterMaskIdLow = 0;
   sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
@@ -208,7 +218,13 @@ int main(void)
   HAL_CAN_Start(&hcan1);
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
-  HAL_UART_Receive_IT(&huart4, UART_RxBuffer.array, 1);
+  //HAL_UART_Receive_IT(&huart4, UART_RxBuffer.array, 1);
+  HAL_UART_Receive_DMA(&huart4, UART_RxBuffer.array, 1);
+  
+  HAL_IWDG_Init(&hiwdg);
+  
+  //Disable watchdog for debugging
+  //__HAL_DBGMCU_FREEZE_IWDG();
 
   /* USER CODE END 2 */
 
@@ -216,6 +232,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    HAL_IWDG_Refresh(&hiwdg);
     CAN_Rx_Handle();
 //    uint8_t TxData[5] = {'H', 'E', 'L', 'L', 'O'};
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &u32_TxMailBox);
@@ -245,8 +262,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
@@ -310,6 +328,34 @@ static void MX_CAN1_Init(void)
 }
 
 /**
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG_Init 0 */
+
+  /* USER CODE END IWDG_Init 0 */
+
+  /* USER CODE BEGIN IWDG_Init 1 */
+
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_16;
+  hiwdg.Init.Reload = 3999;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
+
+  /* USER CODE END IWDG_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -339,6 +385,25 @@ static void MX_UART4_Init(void)
   /* USER CODE BEGIN UART4_Init 2 */
 
   /* USER CODE END UART4_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+  /* DMA1_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 
 }
 
